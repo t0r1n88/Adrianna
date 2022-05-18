@@ -194,9 +194,6 @@ def processing_data():
             for cell in out_ws[number_row]:
                 cell.style = 'Total'
 
-
-
-
         out_wb['Sheet'].column_dimensions['A'].width = 35
         out_wb['Sheet'].column_dimensions['B'].width = 15
         out_wb['Sheet'].column_dimensions['C'].width = 15
