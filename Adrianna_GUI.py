@@ -12,6 +12,7 @@ import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 from itertools import islice
 import time
 import os
@@ -88,98 +89,135 @@ def processing_data():
     :return:
     """
     # Создаем общий датафрейм
-    col_out_df = ['Ф.И.О. преподавателя (полностью)', 'Занимаемая в ПОО должность', 'Квалификационная категория',
-                  'Учебная дисциплина',
-                  'Курс', 'Группа', 'Теория', 'ЛПЗ', 'Учебная практика', 'Производственная практика',
-                  'Преддипломная практика', 'Руководство над курсовым проектом'
-        , 'Консультации', 'Контроль (экзамены, зачеты и т.д.)', 'Руководство ВКР', 'ИТОГО', 'Итого по тарификации']
-    out_df = pd.DataFrame(columns=col_out_df)
+    try:
+        col_out_df = ['Ф.И.О. преподавателя (полностью)', 'Занимаемая в ПОО должность', 'Квалификационная категория','Ученная степень, звание'
+                      ,'Учебная дисциплина',
+                      'Курс', 'Группа', 'Теория', 'ЛПЗ', 'Учебная практика', 'Производственная практика',
+                      'Преддипломная практика', 'Руководство над курсовым проектом'
+            , 'Консультации', 'Контроль (экзамены, зачеты и т.д.)', 'Руководство ВКР', 'ИТОГО', 'Итого по тарификации']
+        out_df = pd.DataFrame(columns=col_out_df)
 
-    # Обрабатываем файл, пропускаем все не xlsx файлы и временные файлы
-    for file in files_data_xlsx:
-        if not file.startswith('~') and file.endswith('.xlsx'):
-            # Создаем датафрейм для соединения результата обработки таблицы и строки с суммой
-            finish_df = pd.DataFrame()
-            df = pd.read_excel(file, skiprows=6)
-            df.columns = ['№/пп', 'Наименование группы', 'Наименование дисциплины', '1 семестр кол 1',
-                          '1 семестр кол 2',
-                          '2 семестр кол 1', '2 семестр кол 2', 'Всего часов',
-                          'Теория', 'ЛПЗ', 'Учебная практика', 'Производственная практика', 'Преддипломная практика',
-                          'Руководство над курсовым проектом', 'Консультации', 'Контроль (экзамены, зачеты и т.д.)',
-                          'Руководство ВКР', 'ИТОГО', 'Преподаватель', 'Промежуточные суммы']
+        # Обрабатываем файл, пропускаем все не xlsx файлы и временные файлы
+        for file in files_data_xlsx:
+            if not file.startswith('~') and file.endswith('.xlsx'):
+                # Создаем датафрейм для соединения результата обработки таблицы и строки с суммой
+                finish_df = pd.DataFrame()
+                df = pd.read_excel(file, skiprows=6)
+                df.columns = ['№/пп', 'Наименование группы', 'Наименование дисциплины', '1 семестр кол 1',
+                              '1 семестр кол 2',
+                              '2 семестр кол 1', '2 семестр кол 2', 'Всего часов',
+                              'Теория', 'ЛПЗ', 'Учебная практика', 'Производственная практика', 'Преддипломная практика',
+                              'Руководство над курсовым проектом', 'Консультации', 'Контроль (экзамены, зачеты и т.д.)',
+                              'Руководство ВКР', 'ИТОГО', 'Преподаватель', 'Промежуточные суммы']
 
-            df = df[df['Наименование группы'].notna()]
+                df = df[df['Наименование группы'].notna()]
 
-            # Очищаем от пробелов перед и после слов
-            df['Наименование группы'] = df['Наименование группы'].apply(lambda x: x.strip())
-            df['Наименование дисциплины'] = df['Наименование дисциплины'].apply(
-                lambda x: change_name_discipline(x) if type(x) == str else x)
+                # Очищаем от пробелов перед и после слов
+                df['Наименование группы'] = df['Наименование группы'].apply(lambda x: x.strip())
+                df['Наименование дисциплины'] = df['Наименование дисциплины'].apply(
+                    lambda x: change_name_discipline(x) if type(x) == str else x)
 
-            df = df[df['Наименование группы'] != 'ознакомлен']
+                df = df[df['Наименование группы'] != 'ознакомлен']
 
-            # Удаляем лишний столбец
-            df.drop(columns=['Промежуточные суммы'], inplace=True)
-            # Создаем книгу для того чтобы отобрать все строки до внебюджета
-            wb = openpyxl.Workbook()
-            ws = wb.active
+                # Удаляем лишний столбец
+                df.drop(columns=['Промежуточные суммы'], inplace=True)
+                # Создаем книгу для того чтобы отобрать все строки до внебюджета
+                wb = openpyxl.Workbook()
+                ws = wb.active
 
-            for r in dataframe_to_rows(df, index=True, header=True):
-                if 'внебюджет' in r:
-                    break
-                ws.append(r)
+                for r in dataframe_to_rows(df, index=True, header=True):
+                    if 'внебюджет' in r:
+                        break
+                    ws.append(r)
 
-            # Загружаем обратно очищенный от внебюджетных дисциплин датафрейм
-            data = ws.values
-            cols = next(data)[1:]
-            data = list(data)
-            idx = [r[0] for r in data]
-            data = (islice(r, 1, None) for r in data)
-            clear_df = pd.DataFrame(data, index=idx, columns=cols)
+                # Загружаем обратно очищенный от внебюджетных дисциплин датафрейм
+                data = ws.values
+                cols = next(data)[1:]
+                data = list(data)
+                idx = [r[0] for r in data]
+                data = (islice(r, 1, None) for r in data)
+                clear_df = pd.DataFrame(data, index=idx, columns=cols)
 
-            clear_df.sort_values(by='Наименование дисциплины', inplace=True)
+                clear_df.sort_values(by='Наименование дисциплины', inplace=True)
 
-            # Копируем данные  в датафрейм
-            finish_df['Ф.И.О. преподавателя (полностью)'] = clear_df['Преподаватель']
-            finish_df['Занимаемая в ПОО должность'] = ''
-            finish_df['Квалификационная категория'] = ''
-            finish_df['Учебная дисциплина'] = clear_df['Наименование дисциплины']
-            finish_df['Курс'] = ''
-            finish_df['Группа'] = clear_df['Наименование группы']
-            finish_df['Теория'] = clear_df['Теория']
-            finish_df['ЛПЗ'] = clear_df['ЛПЗ']
-            finish_df['Учебная практика'] = clear_df['Учебная практика']
-            finish_df['Производственная практика'] = clear_df['Производственная практика']
-            finish_df['Преддипломная практика'] = clear_df['Преддипломная практика']
-            finish_df['Руководство над курсовым проектом'] = clear_df['Руководство над курсовым проектом']
-            finish_df['Консультации'] = clear_df['Консультации']
-            finish_df['Контроль (экзамены, зачеты и т.д.)'] = clear_df['Контроль (экзамены, зачеты и т.д.)']
-            finish_df['Руководство ВКР'] = clear_df['Руководство ВКР']
-            finish_df['ИТОГО'] = clear_df['ИТОГО']
-            finish_df['Итого по тарификации'] = ''
+                # Копируем данные  в датафрейм
+                finish_df['Ф.И.О. преподавателя (полностью)'] = clear_df['Преподаватель']
+                finish_df['Занимаемая в ПОО должность'] = ''
+                finish_df['Квалификационная категория'] = ''
+                finish_df['Ученная степень, звание'] = ''
+                finish_df['Учебная дисциплина'] = clear_df['Наименование дисциплины']
+                finish_df['Курс'] = ''
+                finish_df['Группа'] = clear_df['Наименование группы']
+                finish_df['Теория'] = clear_df['Теория']
+                finish_df['ЛПЗ'] = clear_df['ЛПЗ']
+                finish_df['Учебная практика'] = clear_df['Учебная практика']
+                finish_df['Производственная практика'] = clear_df['Производственная практика']
+                finish_df['Преддипломная практика'] = clear_df['Преддипломная практика']
+                finish_df['Руководство над курсовым проектом'] = clear_df['Руководство над курсовым проектом']
+                finish_df['Консультации'] = clear_df['Консультации']
+                finish_df['Контроль (экзамены, зачеты и т.д.)'] = clear_df['Контроль (экзамены, зачеты и т.д.)']
+                finish_df['Руководство ВКР'] = clear_df['Руководство ВКР']
+                finish_df['ИТОГО'] = clear_df['ИТОГО']
+                finish_df['Итого по тарификации'] = ''
 
-            finish_df.dropna(subset=['Ф.И.О. преподавателя (полностью)'], inplace=True)
+                finish_df.dropna(subset=['Ф.И.О. преподавателя (полностью)'], inplace=True)
 
-            # Получаем сумму колонок
-            sum_col = finish_df.sum(axis=0, numeric_only=True).to_frame().T
-            sum_col['Ф.И.О. преподавателя (полностью)'] = 'Итого'
+                # Получаем сумму колонок
+                sum_col = finish_df.sum(axis=0, numeric_only=True).to_frame().T
+                sum_col['Ф.И.О. преподавателя (полностью)'] = 'Итого'
 
-            finish_df = pd.concat([finish_df, sum_col], ignore_index=True)
+                finish_df = pd.concat([finish_df, sum_col], ignore_index=True)
 
-            out_df = pd.concat([out_df, finish_df], ignore_index=True)
+                out_df = pd.concat([out_df, finish_df], ignore_index=True)
 
-    # Создаем книгу для итогового файла
-    out_wb = openpyxl.Workbook()
-    out_ws = out_wb.active
+        # Создаем книгу для итогового файла
+        out_wb = openpyxl.Workbook()
+        out_ws = out_wb.active
 
-    # Записываем финальный датафрейм в созданную книгу
-    for r in dataframe_to_rows(out_df, index=False, header=True):
-        if len(r) != 1:
-            out_ws.append(r)
+        # Записываем финальный датафрейм в созданную книгу
+        for r in dataframe_to_rows(out_df, index=False, header=True):
+            if len(r) != 1:
+                out_ws.append(r)
+        for cell in out_ws[1]:
+            cell.style = 'Headline 4'
+            cell.alignment = Alignment(wrap_text=True)
+        # выделяем строки с Итого
+        number_row_itog_lst = []
+        # Создаем счетчик
+        count_row = 0
+        for cell in out_ws['A']:
+            count_row += 1
+            if cell.value == 'Итого':
+                number_row_itog_lst.append(count_row)
 
-    t = time.localtime()
-    current_time = time.strftime('%H_%M_%S', t)
-    # Сохраняем итоговый файл
-    out_wb.save(f'{path_to_end_folder}Приложение №6 от {current_time}.xlsx')
+        for number_row in number_row_itog_lst:
+            for cell in out_ws[number_row]:
+                cell.style = 'Total'
+
+
+
+
+        out_wb['Sheet'].column_dimensions['A'].width = 35
+        out_wb['Sheet'].column_dimensions['B'].width = 15
+        out_wb['Sheet'].column_dimensions['C'].width = 15
+        out_wb['Sheet'].column_dimensions['E'].width = 50
+
+
+
+
+        t = time.localtime()
+        current_time = time.strftime('%H_%M_%S', t)
+        # Сохраняем итоговый файл
+        out_wb.save(f'{path_to_end_folder}/Приложение №6 от {current_time}.xlsx')
+    except NameError:
+        messagebox.showerror('ЦОПП Бурятия', f'Выберите файл с данными и папку куда будет генерироваться файл')
+    except ValueError:
+        messagebox.showerror('ЦОПП Бурятия', f'Проверьте количество колонок в файле {file}')
+    except KeyError:
+        messagebox.showerror('ЦОПП Бурятия', f'Проверьте названия колонок в файле{file}')
+
+    else:
+        messagebox.showinfo('ЦОПП Бурятия', 'Данные успешно обработаны')
 
 
 if __name__ == '__main__':
