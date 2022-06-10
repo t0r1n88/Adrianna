@@ -57,7 +57,7 @@ def defining_boundaries_table(wb_d: openpyxl.Workbook):
     data_disciplines = sheet[top_left:bottom_right]
     print(data_disciplines[1])
     # Пробуем создать датафрейм
-    df = pd.DataFrame(columns=range(100))
+    df = pd.DataFrame(columns=range(sheet.max_column))
     count_columns =0
     # перебираем список кортежей-строк
     for row in data_disciplines:
@@ -76,7 +76,8 @@ def defining_boundaries_table(wb_d: openpyxl.Workbook):
 
 
 # Подготавливаем данные
-name_curriculum = 'data/УП ПМ 2021.xlsx'
+# name_curriculum = 'data/УП ПМ 2021.xlsx'
+name_curriculum = 'data/УП ППВ 2021.xlsx'
 path_to_end_folder = 'output'
 t = time.localtime()
 current_time = time.strftime('%H_%M_%S', t)
