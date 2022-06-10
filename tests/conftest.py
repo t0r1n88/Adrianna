@@ -23,7 +23,7 @@ def test_curriculum():
     """
     Фикстура для считывания пробного учебного плана
     """
-    test_curr = openpyxl.load_workbook(f'{PATH_FOLDER_DATA}/{NAME_CURRICULUM}',read_only=True,data_only=True)
+    test_curr = openpyxl.load_workbook(f'{PATH_FOLDER_DATA}/{NAME_CURRICULUM}',data_only=True)
     return test_curr
 
 
