@@ -10,14 +10,24 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
 
-def find_coordinate(sheet_d,column: str, row: int, text) :
+def find_coordinate_value_on_column(sheet_d,column: str, text) :
     """
     Функция для поиска координат ячейки с заданным текстом
     param sheet_d: объект листа где нужно искать
     param column : название колонки
-    param row : номер строки
     param text : значение ячейки координаты которой нужно найти.
     """
+
+    result = None
+    # перебираем значения в колонке пока не найдем нужный результат, иначе None
+    for cell in sheet_d[column]:
+        if cell.value == text:
+            result = cell.coordinate
+
+    # Преобразовываем координаты в кортеж вида (column,row)
+    return openpyxl.utils.cell.coordinate_from_string(result)
+
+
 
 
 def defining_boundaries_table(wb_d: openpyxl.Workbook):
@@ -28,14 +38,41 @@ def defining_boundaries_table(wb_d: openpyxl.Workbook):
     """
     # Переключаемся на лист План
     sheet = wb_d['План']
-    top_left = None
-    # Ищем в колонке 2(B) значение 1
-    for cell in sheet['B']:
-        if cell.value == '1':
-            top_left = cell.coordinate
-        else:
-            continue
-    print(top_left)
+    # Находим адрес левого верхнего края
+    top_left_tuple = find_coordinate_value_on_column(sheet,'B','1')
+    print(top_left_tuple)
+    # находим адрес левого нижнего края
+    bottom_left_tuple = find_coordinate_value_on_column(sheet,'B','ФК.00')
+    print(bottom_left_tuple)
+    #Получаем буквенное обозначение последней колонки
+    letter_max_column = openpyxl.utils.get_column_letter(sheet.max_column)
+    # Получаем номер конечной строки, там где появляется слово ФК.00
+    number_max_row = bottom_left_tuple[1]
+    # получаем координаты крайних ячеек для проведения среза
+    top_left = f'{top_left_tuple[0]}{top_left_tuple[1]}'
+    bottom_right = f'{letter_max_column}{bottom_left_tuple[1]}'
+    # Получаем срез нужных нам данных
+    print(bottom_right)
+    # Получаем список кортежей, где каждая строка таблицы это кортеж со значениями
+    data_disciplines = sheet[top_left:bottom_right]
+    print(data_disciplines[1])
+    # Пробуем создать датафрейм
+    df = pd.DataFrame(columns=range(100))
+    count_columns =0
+    # перебираем список кортежей-строк
+    for row in data_disciplines:
+        # получаем список значений всех ячеек в строке
+        lst_to_df = [cell.value for cell in row]
+        # Создаем промежуточный датафрейм из листа
+        template_df = pd.DataFrame(lst_to_df)
+        # разворачиваем столбец в стркоу
+        flat_df = template_df.transpose()
+        # добавляем в базовый
+        df = pd.concat([df,flat_df],ignore_index=True)
+
+
+    print(df.shape)
+    df.to_excel('t.xlsx')
 
 
 # Подготавливаем данные
@@ -47,4 +84,9 @@ current_time = time.strftime('%H_%M_%S', t)
 # Открываем документ
 wb = openpyxl.load_workbook(name_curriculum, data_only=True)
 
-defining_boundaries_table(wb)
+
+data_disciplines = defining_boundaries_table(wb)
+
+
+
+
